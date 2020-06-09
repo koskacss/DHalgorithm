@@ -5,71 +5,77 @@
 #include <math.h>
 #include <gmp.h>
 
-void Diffie_Hellman(int mode); // Function for demonstrate Diffie-Hellman Algorithm
+#ifdef linux
+#define CLS system("clear")
+#else
+#define CLS system("cls")
+#endif
+
+void Diffie_Hellman(int mode); // Function for demonstrating Diffie-Hellman Algorithm
+void Pohlig_Hellman_algorigthm(int mode); // Funtion for demostrating of Pohlig-Hellman work
 int is_primitive(mpz_t num, mpz_t phi, mpz_t p); // Function for checking if prime is primitive
-void generate_private_key(mpz_t *key); // Function for generating random number
+void generate_private_key(mpz_t *key, int param); // Function for generating random number
 void get_public_key(mpz_t *key,mpz_t *p, mpz_t *g, mpz_t* exp); // Function for calculating public keys
 void get_final_key(mpz_t *final_key,mpz_t *g, mpz_t *a, mpz_t *b, mpz_t *p); // Function for getting final key
-void crypt_message(mpz_t *key, char *msg); // Function for crypt message via key
 void Pohlig_algorithm(mpz_t *key, mpz_t *primitie, mpz_t *module,int degree, mpz_t *A, mpz_t *B); // Function that immitate pohlig-hellman algorithm
 void Pohlig_calculating_func(int degree,mpz_t *module, mpz_t *key, mpz_t *primitive, mpz_t *x);
 void print_factorization(int degree);
 void check_z(mpz_t *z, mpz_t *module,mpz_t *q);
+void show_Alice_and_Bob(int Pohlig,mpz_t *p, mpz_t *primitive, mpz_t *Alice_key_private, mpz_t *Bob_key_private, mpz_t * Alice_public_key, mpz_t *Bob_public_key ,mpz_t *final_key_Alice, mpz_t* final_key_Bob);
+void show_Eve(mpz_t *p, mpz_t *primitive, mpz_t *Alice_public_key, mpz_t *Bob_public_key);
 
-
-int main()
+int main(int argc, char *argv[])
 {
+    short mode;
     short chooce;
 
-    puts("1 - Demonstrate Diffie - Hellman");
-    puts("2 - Demonstrate Pohlig - Hellman");
-    scanf("%hi", &chooce);
+    CLS;
 
-    Diffie_Hellman(chooce);
+    if((argc == 1) || (((strcmp(argv[1], "-Normal\0")) != 0) && (strcmp(argv[1], "-Demo\0")) != 0)) {
+        puts("Error! Run program with -Normal or -Demo flag");
+    } else {
+        if((strcmp(argv[1], "-Normal\0")) == 0) mode = 1;
+        else mode = 2;
+
+        printf("Working in mode %d\n", mode);
+        puts("1 - Demonstrate Diffie - Hellman");
+        puts("2 - Demonstrate Pohlig - Hellman");
+        scanf("%hi", &chooce);
+
+        if(chooce == 1) Diffie_Hellman(mode);
+        else Pohlig_Hellman_algorigthm(mode);
+    }
+
 
     return 0;
 }
 
 void Diffie_Hellman(int mode)
 {
-    int run = 1,j,degree,seed;
-    char *Alice_message = malloc(512*sizeof(char));;
+    int run = 1,j,degree,seed,param;
     mpz_t  tmp_two,two,p,phi,primitive,one,Alice_key_private,Bob_key_private,Alice_public_key,Bob_public_key,final_key_Alice,final_key_Bob;
     mpz_inits(tmp_two,two,p,phi,primitive,one,Alice_key_private,Bob_key_private,Alice_public_key,Bob_public_key,final_key_Alice,final_key_Bob,'\0');
-
 
     mpz_add_ui(one,one,1);
     mpz_add_ui(primitive,primitive,2);
 
     srand(time(NULL));
 
-    if(mode == 1){
-        degree = rand();
+    if(mode == 2) param = 32;
+    else param = 768;
 
-        gmp_randstate_t state;
-        gmp_randinit_mt(state);
-        gmp_randseed_ui(state, seed);
+    degree = rand() % 10 + 1;
+
+    gmp_randstate_t state;
+    gmp_randinit_mt(state);
+    gmp_randseed_ui(state, seed);
 
 
-        for(j = 0; j < rand() && (mpz_probab_prime_p(p,15) != 2); j++) {
-            mpz_urandomb(p,state,768);
-        }
-    } else {
-        mpz_add_ui(two,two,2);
-        degree = rand() % 256 + 10; // Generate degree of two
-
-        mpz_pow_ui(tmp_two,two,degree);
-        mpz_add_ui(tmp_two,tmp_two,1);
-
-        while((mpz_probab_prime_p(tmp_two,15)) != 2){
-            degree = rand() % 256 + 10; // Generate degree of two
-
-            mpz_pow_ui(tmp_two,two,degree);
-            mpz_add_ui(tmp_two,tmp_two,1);
-        }
-
-        mpz_set(p, tmp_two);
+    for(j = 0; j < rand() && (mpz_probab_prime_p(p,15) != 2); j++) {
+        mpz_urandomb(p,state,param);
     }
+
+    if(mode == 2) mpz_pow_ui(p,p,degree);
 
     mpz_sub(phi,p,one);
 
@@ -77,8 +83,8 @@ void Diffie_Hellman(int mode)
         mpz_nextprime(primitive,primitive);
     }
 
-    generate_private_key(&Alice_key_private);
-    generate_private_key(&Bob_key_private);
+    generate_private_key(&Alice_key_private, param);
+    generate_private_key(&Bob_key_private, param);
 
     get_public_key(&Alice_public_key,&p,&primitive,&Alice_key_private);
     get_public_key(&Bob_public_key,&p,&primitive,&Bob_key_private);
@@ -86,36 +92,71 @@ void Diffie_Hellman(int mode)
     get_final_key(&final_key_Alice, &primitive, &Alice_key_private, &Bob_key_private, &p);
     get_final_key(&final_key_Bob, &primitive, &Bob_key_private, &Alice_key_private, &p);
 
-    puts("Randomly generated p:");
-    mpz_out_str(stdout,10,p);
-    puts("\nPrimitive root:");
-    mpz_out_str(stdout,10,primitive);
-    puts("\nAlice`s private key:");
-    mpz_out_str(stdout,10,Alice_key_private);
-    puts("\nBob`s private key:");
-    mpz_out_str(stdout,10,Bob_key_private);
-    puts("\nAlice`s public key:");
-    mpz_out_str(stdout,10,Alice_public_key);
-    puts("\nBob`s public key:");
-    mpz_out_str(stdout,10,Bob_public_key);
-    puts("\nAlice`s final key:");
-    mpz_out_str(stdout,10,final_key_Alice);
-    puts("\nBob`s final key:");
-    mpz_out_str(stdout,10,final_key_Bob);
-    if(mode == 2){
-        puts("\nPohlig algorithm:");
-        Pohlig_algorithm(&final_key_Alice,&primitive,&p,degree, &Alice_public_key, &Bob_public_key);
-    }
+    show_Alice_and_Bob(0,&p,&primitive,&Alice_key_private,&Bob_key_private,&Alice_public_key,&Bob_public_key,&final_key_Alice,&final_key_Bob);
+
     puts("");
 
     mpz_clears(p,phi,primitive,one, '\0');
 
 }
 
-void generate_private_key(mpz_t *key)
+void Pohlig_Hellman_algorigthm(int mode)
+{
+    int degree, param;
+    mpz_t two, p, tmp_two, phi, one, primitive, Alice_key_private, Bob_key_private, Alice_public_key, Bob_public_key, final_key_Alice , final_key_Bob;
+    
+    mpz_inits(two, p, tmp_two, phi, one, primitive, Alice_key_private, Bob_key_private, Alice_public_key, Bob_public_key, final_key_Alice , final_key_Bob, '\0');
+    
+    mpz_add_ui(primitive,primitive,2);
+
+    srand(time(NULL));
+
+    if(mode == 2) param = 16;
+    else param = 768;
+
+    mpz_add_ui(two,two,2);
+    degree = 10 + rand()%(param - 10 + 1); // Generate degree of two
+
+    mpz_pow_ui(tmp_two,two,degree);
+    mpz_add_ui(tmp_two,tmp_two,1);
+
+    while((mpz_probab_prime_p(tmp_two,15)) != 2){
+
+        degree = 10 + rand()%(param - 10 + 1); // Generate degree of two
+
+        mpz_pow_ui(tmp_two,two,degree);
+        mpz_add_ui(tmp_two,tmp_two,1);
+    }
+
+    mpz_set(p, tmp_two);
+    mpz_set_ui(one,1);
+
+    mpz_sub(phi,p,one);
+
+    while((is_primitive(primitive,phi,p)) != 1){
+        mpz_nextprime(primitive,primitive);
+    }
+
+    generate_private_key(&Alice_key_private, param);
+    generate_private_key(&Bob_key_private, param);
+
+    get_public_key(&Alice_public_key,&p,&primitive,&Alice_key_private);
+    get_public_key(&Bob_public_key,&p,&primitive,&Bob_key_private);
+
+    get_final_key(&final_key_Alice, &primitive, &Alice_key_private, &Bob_key_private, &p);
+    get_final_key(&final_key_Bob, &primitive, &Bob_key_private, &Alice_key_private, &p);
+
+    show_Alice_and_Bob(1,&p,&primitive,&Alice_key_private,&Bob_key_private,&Alice_public_key,&Bob_public_key,&final_key_Alice,&final_key_Bob);
+
+    puts("\nPohlig algorithm:");
+    Pohlig_algorithm(&final_key_Alice,&primitive,&p,degree, &Alice_public_key, &Bob_public_key);
+
+    mpz_clears(two, p, tmp_two, phi, one, primitive, Alice_key_private, Bob_key_private, Alice_public_key, Bob_public_key, '\0');
+}
+
+void generate_private_key(mpz_t *key, int param)
 {
     int j,seed;
-
 
     seed = rand();
 
@@ -124,7 +165,7 @@ void generate_private_key(mpz_t *key)
     gmp_randseed_ui(state, seed);
 
     for(j = 0; j < rand(); j++) {
-       mpz_urandomb(*key,state,768);
+       mpz_urandomb(*key,state,param);
     }
 
 }
@@ -158,6 +199,7 @@ int is_primitive(mpz_t num, mpz_t phi, mpz_t p)
             mpz_powm(test1,num,i,p);
             if(mpz_cmp(test1,one) == 0){
                 res = 0;
+                mpz_clears(test, one, i, test1 ,'\0');
                 return res;
             }
             mpz_add_ui(i,i,1);
@@ -169,23 +211,78 @@ int is_primitive(mpz_t num, mpz_t phi, mpz_t p)
     return res;
 }
 
-void crypt_message(mpz_t *key, char *msg)
+
+void show_Alice_and_Bob(int Pohlig,mpz_t *p, mpz_t *primitive, mpz_t *Alice_key_private, mpz_t *Bob_key_private, mpz_t * Alice_public_key, mpz_t *Bob_public_key ,mpz_t *final_key_Alice, mpz_t* final_key_Bob)
 {
-    int i;
-    mpz_t shift, module;
-    mpz_inits(shift, module, '\0');
+    char choice;
 
-    mpz_add_ui(module,module,127);
+    puts("Randomly generated p (At Alice`s computer):");
+    mpz_out_str(stdout,10,*p);
+    puts("");
+    puts("\nPrimitive root (was generated at Alice`s computer):");
+    mpz_out_str(stdout,10,*primitive);
+    puts("");
+    puts("\nAlice`s private key (was generated at Alice`s computer):");
+    mpz_out_str(stdout,10,*Alice_key_private);
+    puts("");
+    puts("\nBob`s private key (was generated at Bob`s computer):");
+    mpz_out_str(stdout,10,*Bob_key_private);
+    puts("");
+    puts("");
+    puts("-----------------------------------------------------------------------");
+    puts("At this step Alice and Bob exchanged their public keys and parameters");
+    puts("-----------------------------------------------------------------------");
+    puts("\nAlice`s public key (was generated and sent to Bob):");
+    mpz_out_str(stdout,10,*Alice_public_key);
+    puts("");
+    puts("\nBob`s public key (was generated and sent to Alice):");
+    mpz_out_str(stdout,10,*Bob_public_key);
+    puts("");
+    puts("\nAlice`s final key (Was calculated after exchanging of public keys):");
+    mpz_out_str(stdout,10,*final_key_Alice);
+    puts("");
+    puts("\nBob`s final key (Was calculated after exchanging of public keys):");
+    mpz_out_str(stdout,10,*final_key_Bob);
+    puts("");
+    puts("");
+    puts("-----------------------------------------------------------------------");
+    puts("Now Alice and Bob have the same keys");
+    puts("-----------------------------------------------------------------------");
 
-    mpz_mod(shift,*key,module);
+    if(Pohlig == 0){
+        printf("\nDo you want to check Eve`s log?\nY - Yes , N - No\n\n");
+        getchar();
+        scanf("%c", &choice);
 
-    mpz_get_ui(shift);
-
-    for(i = 0; i < strlen(msg)+1; i++){
-        msg[i] = msg[i] + i;
+        if(choice == 'Y') show_Eve(p, primitive, Alice_public_key, Bob_public_key);
     }
-    msg[i+1] = '\0';
+}
 
+void show_Eve(mpz_t *p, mpz_t *primitive, mpz_t *Alice_public_key, mpz_t *Bob_public_key)
+{
+    puts("\nEve - man in the middle listening Bob`s and Alice`s channel");
+    puts("");
+    puts("-----------------------------------------------------------------------");
+    puts("Eve knows generated parameters p and g");
+    puts("-----------------------------------------------------------------------");
+    puts("Parameter p:");
+    mpz_out_str(stdout,10,*p);
+    puts("");
+    puts("\nParameter g:");
+    mpz_out_str(stdout,10,*primitive);
+    puts("");
+    puts("-----------------------------------------------------------------------");
+    puts("When Alice and Bob exchanged their public keys, Eve could see them ");
+    puts("-----------------------------------------------------------------------");
+    puts("\nAlice`s public key:");
+    mpz_out_str(stdout,10,*Alice_public_key);
+    puts("");
+    puts("\nBob`s public key:");
+    mpz_out_str(stdout,10,*Bob_public_key);
+    puts("");
+    puts("-----------------------------------------------------------------------");
+    puts("Also Eve knows that final key calculates as g^A = K (mod p)");
+    puts("-----------------------------------------------------------------------");
 }
 
 void Pohlig_algorithm(mpz_t *key, mpz_t *primitive, mpz_t *module, int degree, mpz_t *A, mpz_t *B)
@@ -201,6 +298,7 @@ void Pohlig_algorithm(mpz_t *key, mpz_t *primitive, mpz_t *module, int degree, m
     mpz_powm(final_key,*primitive,x1,*module);
     puts("\nCalculated final key:");
     mpz_out_str(stdout,10,final_key);
+    puts("");
 
 }
 
